@@ -17,19 +17,19 @@ You can either use Melder from [here](http://www.firefallthegame.com/community/t
 ###::Relay Server::
 ====================
 ###Dependencies:
-The relay server is written for Node.js so it has a few dependacy that you will need to install. Thank fully it shouldn't hurt too badly :P
-* 	Node.js.
+The relay server is written for Node.js so it has a few dependency that you will need to install. Thank fully it shouldn't hurt too badly :P
+*  Node.js.
 * 	Socket.io.
 * 	node-irc 
 
 ###Installation:
-Use one of these metiods to install Node.js and npm: https://gist.github.com/579814
+Use one of these methods to install Node.js and npm: https://gist.github.com/579814
 
-Then just navagate to the directory where you want to locate the server and run this script:
+Then just navigate to the directory where you want to locate the server and run this script:
  ```bash
 curl https://raw.github.com/ArkyChan/FireFall-IRC/master/IRCRelay/get.sh | sh
   ```
-That script should install the dependencies and grab the latest version of the server, now you jsut have to lauch the server.
+That script should install the dependencies and grab the latest version of the server, now you just have to launch the server.
 
 Like so:
  ```bash
