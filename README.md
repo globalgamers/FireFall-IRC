@@ -3,10 +3,14 @@
 
 An ingame IRC client for FireFall.
 
-More info in this thread here :) http://www.firefallthegame.com/community/threads/addon-ingame-irc.65422/
+More info in this [thread here](http://www.firefallthegame.com/community/threads/addon-ingame-irc.65422/) :)
 
 ###::FireFall Addon::
 ====================
+###[Download Addon](https://github.com/ArkyChan/FireFall-IRC/raw/master/IRC.zip)
+====================
+
+You can either use Melder from [here](http://www.firefallthegame.com/community/threads/addon-manager-melder.52327/) or extract the zip to "system\gui\components\MainUI\HUD\Addons" in your FireFall install, if you don't have an Addons folder just make one.
 ![Ingame shot](http://www.yayifications.net/firefall/addons/irc/IRC_FULLSCREEN.png "Ingame Shot")
 
 
