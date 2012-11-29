@@ -29,6 +29,40 @@
 				if (Red5)
 					Red5.onMessage(data.from, data.to, data.msg);
 			  });
+			  
+			socket.on('onPM', function (data) 
+			{
+			if (Red5)
+				Red5.onMessage(data.nick, data.text, data.msg);
+			});
+			
+			socket.on('onMEAction', function (data) 
+			{
+			if (Red5)
+				Red5.onMessagePlain(data.nick, data.text);
+			});
+			
+			socket.on('onNames', function (data) 
+			{
+			if (Red5)
+			{
+				var names = "";
+				for (var nick in data.nicks)
+				{
+					names += "["+nick+"] ";
+				}
+				
+				Red5.onNames(data.channel, names);
+			}
+			});
+			
+			socket.on('onNick', function (data) 
+			{
+			if (Red5)
+			{
+				Red5.onNick(data.channel, data.oldnick, data.newnick);
+			}
+			});
 		  
 				//============================
 				// LUA Callbacks

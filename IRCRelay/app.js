@@ -51,8 +51,9 @@ io.sockets.on('connection', function (socket)
 	  {
 		if (ircClient != false)
 			ircClient.disconnect("cya ^^");
-		
+			
 		ircClient = IRC_Connect(socket, data.host, data.chan, data.nick);
+			
 		channel = data.chan;
 	  });
 	  
@@ -60,7 +61,26 @@ io.sockets.on('connection', function (socket)
 	  socket.on('say', function (data) 
 	  {
 		if (ircClient)
-			ircClient.say(channel, data);
+		{
+			var msg = new String(data);
+			var cmdEnd = msg.indexOf(" ");
+			if (cmdEnd == -1)
+			{
+				cmdEnd = msg.length;
+			}
+			var command = msg.substr(0, cmdEnd);
+			msg = msg.substr(msg.indexOf(" ")+1, msg.length);
+			
+			if (command == "/me")
+				ircClient.action(channel, msg);
+			else if (command == "/names")
+			{
+				ircClient.send("NAMES", channel);
+				console.log(msg);
+			}
+			else
+				ircClient.say(channel, data);
+		}
 	  });
 	  
 	  // Send a raw command to the irc server
@@ -107,6 +127,42 @@ function IRC_Connect(socket, host, chan, user)
 	function (from, to, message) 
 	{
 		socket.emit('onMessage', {"from": from, "to": to, "msg": message});
+	});
+	
+	client.addListener('pm', 
+	function (nick, text, message) 
+	{
+		socket.emit('onPM', {"nick": from, "text": text, "msg": message});
+	});
+	
+	client.addListener('names', 
+	function (channel, nicks) 
+	{
+		socket.emit('onNames', {"channel": channel, "nicks": nicks});
+	});
+	
+	client.addListener('nick', 
+	function (oldnick, newnick, channels, message) 
+	{
+		socket.emit('onNick', {"oldnick": oldnick, "newnick": newnick, "channel": channels});
+	});
+	
+	/*client.addListener('raw', 
+	function (message) 
+	{
+		console.log("Raw Message");
+		console.log(message);
+	});*/
+	
+	client.addListener('ctcp-privmsg', 
+	function (from, to, text) 
+	{
+		console.log(text.substr(0, 6)+"|");
+		if (text.indexOf("ACTION") > -1)
+		{
+			socket.emit('onMEAction', {"nick": from, "text": text.substr(7, text.length)});
+			console.log(text.substr(7, text.length));
+		}
 	});
 	
 	// New topic
