@@ -1,9 +1,12 @@
+var https = require('https');
 var app = require('http').createServer(handler)
   , io = require('socket.io').listen(app, { log: false })
   , fs = require('fs');
   
  var irc = require('irc');
  
+ // Current version
+ var version = 1.0;
  var port = 80;
  if (process.argv[2])
 	port = process.argv[2];
@@ -12,6 +15,7 @@ console.log("==================================================");
 console.log("--       FireFall IRC Relay Server        Arkii --");
 console.log("==================================================");
 console.log("Server Started Listening on port: " + port + " Nao :D");
+CheckVersion();
 
 app.listen(port);
 
@@ -194,4 +198,38 @@ function IRC_Connect(socket, host, chan, user)
 	});
 	
 	return client;
+}
+
+// Check to see if we are upto date
+function CheckVersion()
+{
+	var options = 
+	{
+	  host: 'raw.github.com',
+	  port: 443,
+	  path: '/ArkyChan/FireFall-IRC/master/IRCRelay/version.txt',
+	  method: 'GET'
+	};
+
+	var req = https.request(options, function(res) 
+	{
+	  res.on('data', function(d) 
+	  {
+		// if the version is out of date tell who ever is running it so
+		if (parseFloat(d) > version)
+		{
+			console.warn("==================================================");
+			console.warn("Version out of date!");
+			console.warn("check: https://github.com/ArkyChan/FireFall-IRC");
+			console.warn("for updates");
+			console.warn("==================================================");
+		}
+	  });
+	});
+	req.end();
+	
+	req.on('error', function(e) 
+	{
+		console.error("Error checking version: " + e);
+	});
 }
