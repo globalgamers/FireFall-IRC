@@ -1,4 +1,5 @@
 var https = require('https');
+var url = require("url");
 var app = require('http').createServer(handler)
   , io = require('socket.io').listen(app, { log: false })
   , fs = require('fs');
@@ -11,9 +12,9 @@ var app = require('http').createServer(handler)
  if (process.argv[2])
 	port = process.argv[2];
  
-console.log("==================================================");
-console.log("--       FireFall IRC Relay Server        Arkii --");
-console.log("==================================================");
+console.warn("!============================================================!");
+console.log("--              FireFall IRC Relay Server             Arkii --");
+console.warn("!============================================================!");
 console.log("Server Started Listening on port: " + port + " Nao :D");
 CheckVersion();
 
@@ -24,17 +25,27 @@ app.listen(port);
 //==================================================
 function handler (req, res) 
 {
-  fs.readFile(__dirname + '/irc.html',
-  function (err, data) 
-  {
-    if (err) {
-      res.writeHead(500);
-      return res.end('Error test.html');
-    }
+	var pathname = url.parse(req.url).pathname;
+	if (pathname == "/stats") // Display the stats
+	{
+		res.writeHead(200);
+		res.end("Active Connections: " + activeConnections);
+	}
+	else
+	{
+		fs.readFile(__dirname + '/irc.html',
+		function (err, data) 
+		{
+			if (err) 
+			{
+				res.writeHead(500);
+				return res.end('Error test.html');
+			}
 
-    res.writeHead(200);
-    res.end(data);
-  });
+		res.writeHead(200);
+		res.end(data);
+		});
+	}
 }
 
 var activeConnections = 0;
@@ -80,17 +91,14 @@ io.sockets.on('connection', function (socket)
 			else if (command == "/names")
 			{
 				ircClient.send("NAMES", channel);
-				console.log(msg);
+			}
+			else if (command == "/nick")
+			{
+				ircClient.send("NICK", msg);
 			}
 			else
 				ircClient.say(channel, data);
 		}
-	  });
-	  
-	  // Send a raw command to the irc server
-	  socket.on('ircRaw', function (data) 
-	  {
-		
 	  });
 	  
 	  // Disconnect
@@ -200,6 +208,10 @@ function IRC_Connect(socket, host, chan, user)
 	return client;
 }
 
+//==================================================
+// Functions
+//==================================================
+
 // Check to see if we are upto date
 function CheckVersion()
 {
@@ -218,11 +230,11 @@ function CheckVersion()
 		// if the version is out of date tell who ever is running it so
 		if (parseFloat(d) > version)
 		{
-			console.warn("==================================================");
+			console.warn("!============================================================!");
 			console.warn("Version out of date!");
 			console.warn("check: https://github.com/ArkyChan/FireFall-IRC");
-			console.warn("for updates");
-			console.warn("==================================================");
+			console.warn("for updates, this version will still run but may lack features");
+			console.warn("!============================================================!");
 		}
 	  });
 	});

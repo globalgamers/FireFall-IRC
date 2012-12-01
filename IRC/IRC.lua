@@ -32,7 +32,7 @@ local ircChan = "#yayifications";
 local ircNick = "";
 local ircAutoJoin = true;
 
-local primaryRelay = "176.31.170.161:8181";
+local primaryRelay = "ffirc.eu01.aws.af.cm";
 local secondaryRelay = "ffirc.eu01.aws.af.cm";
 local activeIRCRelay = "";
 
@@ -42,7 +42,10 @@ local ircClientmsgColor = "#0EFF9C";
 local ircMsgBgColor = "#000000";
 local ircMsgBgAlpha = 0.5;
 
+local ircMsgShouldFade = true;
 local ircMsgFadeTime = 15;
+
+local ircChatToggle = false; -- If true then /irc will be prepended to the chat automatically
 
 --=====================
 --		   UI        --
@@ -64,7 +67,7 @@ InterfaceOptions.AddTextInput({id="IRCCHANNEL", label="Default IRC Channel:", de
 UIHELPER.AddUICallback("IRCCHANNEL", function(args) ircChan = args; end);
 
 InterfaceOptions.AddTextInput({id="IRCNICK", label="Default IRC Nick:", default=ircNick, maxlen=128});
-UIHELPER.AddUICallback("IRCNICK", function(args) ircNick = args; end);
+UIHELPER.AddUICallback("IRCNICK", function(args) IRCSetNick(args); WEBFRAME:CallWebFunc('IRC_Say', "/nick "..args); end);
 
 InterfaceOptions.AddCheckBox({id="IRCAUTOJOIN", label="Auto Join Channel:", tooltip="If checked you will automaticly connect to the given irce server and channel. Can spam Connect/disconnects if you relaod the ui :/", default=ircAutoJoin});
 UIHELPER.AddUICallback("IRCAUTOJOIN", function(args) ircAutoJoin = args; end);
@@ -95,6 +98,15 @@ UIHELPER.AddUICallback("IRCMSGBGCOLOR", function(args) ircMsgBgColor = args.tint
 InterfaceOptions.AddSlider({id="IRCMSGBGALPHA", label="Message background alpha:", default=ircMsgBgAlpha, min=0.1, max=1.0, inc=0.1, multi=100});
 UIHELPER.AddUICallback("IRCMSGBGALPHA", function(args) ircMsgBgAlpha = args; end);
 
+InterfaceOptions.AddCheckBox({id="IRCSHOULDFADE", label="Fade IRC Messages:"});
+UIHELPER.AddUICallback("IRCSHOULDFADE", 
+	function(args)
+		ircMsgShouldFade = args;
+		InterfaceOptions.DisableOption("IRCMSGFADE", not args);
+		IRCShowAllMsgs();
+	end
+);
+
 InterfaceOptions.AddSlider({id="IRCMSGFADE", label="Time to message fade:", default=ircMsgFadeTime, min=1, max=60, inc=1});
 UIHELPER.AddUICallback("IRCMSGFADE", function(args) ircMsgFadeTime = args; end);
 
@@ -111,6 +123,9 @@ UIHELPER.AddUICallback("IRCRELAY2", function(args) secondaryRelay = args; end);
 
 InterfaceOptions.StopGroup();
 
+-- Called when the ui options are loaded
+UIHELPER.AddUICallback("__LOADED", function(args) if (ircNick == "") then IRCSetNick(Player.GetInfo()); end end);
+
 --=====================
 --		Events       --
 --=====================
@@ -118,6 +133,8 @@ function OnComponentLoad()
 	InterfaceOptions.SetCallbackFunc(function(id, val)
 			OnMessage({type=id, data=val})
 		end, ADDONNAME);
+		
+	InterfaceOptions.NotifyOnLoaded(true);
 	
 	maXChatLines = WINDOWHEIGTH/LINEHEIGHT;
 	
@@ -127,24 +144,25 @@ function OnComponentLoad()
 	WEBFRAME:AddWebCallback("onJoin", onJoin);
 	WEBFRAME:AddWebCallback("onPart", onPart);
 	WEBFRAME:AddWebCallback("onMessage", onIRCMessage);
+	WEBFRAME:AddWebCallback("onMessagePlain", onIRCMessagePlain);
+	WEBFRAME:AddWebCallback("onNames", onIRCNamesList);
+	WEBFRAME:AddWebCallback("onNick", onIRCNNick);
 	
 	-- Chat commands
-	LIB_SLASH.BindCallback({slash_list="web", description="Show the web thingy", func=slashy.SlashCallback});
+	LIB_SLASH.BindCallback({slash_list="irctoggle, irc_toggle", description="Prepend '/irc' to message automatically", func=slashy.IRC_Toggle});
 	LIB_SLASH.BindCallback({slash_list="irc", description="Say something in the current irc channel", func=slashy.IRC_Say});
 	LIB_SLASH.BindCallback({slash_list="ircconnect, irc_connect", description="Connect to a irc server and channel. Usage: /ircconnect server channel", func=slashy.IRC_Connect});
 	LIB_SLASH.BindCallback({slash_list="ircdisconnect, irc_disconnect, ircleave", description="Disconnect from the current server and channel", func=slashy.IRC_Disconnect});
-	-- LIB_SLASH.BindCallback({slash_list="ircraw", description="Send a raw command to the server, like /ircraw +o Arkii", func=slashy.IRC_Raw});
 	
 	FRAME:Show(true);
 	FRAME:SetParam("alpha", 1.0);
 	
 	CheckRelayPrimary();
-end
-
-slashy.SlashCallback = function()
-       Component.GenerateEvent("MY_SYSTEM_MESSAGE", {text="Good Job!"});
-	   WEBFRAME:Show(true);
-	   Component.SetInputMode("cursor");
+	
+	local nick = Component.GetSetting("IRCNICK");
+	if (nick) then
+		IRCSetNick(nick);
+	end
 end
 
 function OnMessage(args)
@@ -155,6 +173,43 @@ function WebUI_OnNavigationFinished()
 	if (ircAutoJoin) then
 		IRCConnect(ircServer, ircChan, ircNick);
 	end
+end
+
+function OnBeginChat(args)
+	if (ircChatToggle) then
+		Component.GenerateEvent("MY_BEGIN_CHAT", {command=false, reply=false, text="/irc "});
+	end
+end
+
+-- Slash commands
+slashy.IRC_Say = function(args)
+	if (args[1] ~= nil) then
+		WEBFRAME:CallWebFunc('IRC_Say', args.text);
+		if (string.sub(args.text, 1, 3) == "/me") then
+			IRCChatMsgPlain(ircNick .. string.sub(args.text, 4));
+		elseif (string.sub(args.text, 1, 5) == "/nick") then
+			ircNick = string.sub(args.text, 7);
+		else
+			IRCChatMsg(ircNick, args.text);
+		end
+	end
+	
+	IRCShowAllMsgs();
+end
+
+slashy.IRC_Connect  = function(args)
+	if (args.text) then
+		IRCConnect(args[1], args[2], ircNick);
+	end
+end
+
+slashy.IRC_Disconnect  = function()
+	WEBFRAME:CallWebFunc('IRC_Disconnect', nil);
+	IRCClientMsg("You have been disconnected :/");
+end
+
+slashy.IRC_Toggle = function()
+	ircChatToggle = not ircChatToggle;
 end
 
 --=====================
@@ -225,34 +280,25 @@ function onPart(nick)
 	IRCShowAllMsgs();
 end
 
-function onIRCMessage(from, chan, msg)
+function onIRCMessage(from, text, msg)
 	IRCChatMsg(from, msg);
 	IRCShowAllMsgs();
 end
 
--- Slash commands
-slashy.IRC_Say = function(args)
-	if (args[1] ~= nil) then
-		WEBFRAME:CallWebFunc('IRC_Say', args.text);
-		IRCChatMsg(ircNick, args.text);
-	end
-	
+function onIRCMessagePlain(from, text)
+	IRCChatMsgPlain(from.." "..text);
 	IRCShowAllMsgs();
 end
 
-slashy.IRC_Connect  = function(args)
-	if (args.text) then
-		IRCConnect(args[1], args[2], ircNick);
-	end
+function onIRCNamesList(channel, names)
+	IRCServerMsg("Names:");
+	IRCServerMsg(names);
+	IRCShowAllMsgs();
 end
 
-slashy.IRC_Disconnect  = function()
-	WEBFRAME:CallWebFunc('IRC_Disconnect', nil);
-	IRCClientMsg("You have been disconnected :/");
-end
-
-slashy.IRC_Raw  = function()
-	WEBFRAME:CallWebFunc('IRC_Raw', nil);
+function onIRCNNick(channel, old, new)
+	IRCServerMsg(old.." is now know as "..new);
+	IRCShowAllMsgs();
 end
 
 --=====================
@@ -263,30 +309,34 @@ function IRCChatMsg(from, msg)
 	IRCAddMsg("<"..from..">", msg, ircChatmsgColor);
 end
 
+function IRCChatMsgPlain(msg)
+	IRCAddMsg("", msg, ircChatmsgColor);
+end
+
 -- A IRC Server msg
 function IRCServerMsg(msg)
 	IRCAddMsg("-!-", msg, ircServermsgColor);
 end
 
--- A message fome the client, me :P
+-- A message from the client, me :P
 function IRCClientMsg(msg)
 	IRCAddMsg("=>", msg, ircClientmsgColor);
 end
 
+-- Set the IRC Nick
+function IRCSetNick(newNick)
+	ircNick = newNick;
+	Component.SaveSetting("IRCNICK", ircNick);
+end
+
 -- Connect to an IRC Server
-function IRCConnect(ircServer, ircChan, ircNick)
-	if (ircServer == nil or ircChan == nil or ircNick == nil) then
+function IRCConnect(ircServer, ircChan, ircNicky)
+	if (ircServer == nil or ircChan == nil or ircNicky == nil) then
 		IRCClientMsg("Error :/ Please check make sure you enter a server channel and nick");
 	else
 		IRCClientMsg("Connecting to ".. ircChan.." on ".. ircServer);
-		local nick = ircNick;
 		
-		-- If no nick was set default to their ingame anme :)
-		if (nick == "") then
-			nick = Player.GetInfo();
-		end
-		
-		WEBFRAME:CallWebFunc('IRC_Connect', ircServer, ircChan, nick);
+		WEBFRAME:CallWebFunc('IRC_Connect', ircServer, ircChan, ircNicky);
 	end
 end
 
@@ -298,14 +348,17 @@ function IRCAddMsg(tag, msg, color)
 	LINE.PLATE:SetParam("tint", ircMsgBgColor);
 	LINE.GROUP:SetParam("alpha", ircMsgBgAlpha);
 	LINE.GROUP:Show(true);
-	LINE.GROUP:SetParam("alpha", 1.0);
+	--LINE.GROUP:SetParam("alpha", 1.0);
 	local txt = tag .. " " .. msg;
 	LINE.TEXT:SetText(txt);
-	LINE.NUMLINES = GetNumLines(txt, 8, WINDOWWIDTH);
+	LINE.NUMLINES = GetNumLines(txt, 7, WINDOWWIDTH); -- Need to take word wraping into account, I'm sure Red5 have something for this but i can't find it :/
 	LINE.LINEHEIGTH = (LINE.NUMLINES * LINEHEIGHT);
 	LINE.GROUP:SetDims("left:0; width:100%; top:".. (WINDOWHEIGTH - LINE.LINEHEIGTH) .."; height:"..LINE.LINEHEIGTH);
 	LINE.TEXT:SetTextColor(color);
-	LINE.GROUP:ParamTo("alpha", 0, 5, ircMsgFadeTime);
+	
+	if (ircMsgShouldFade) then
+		LINE.GROUP:ParamTo("alpha", 0, 5, ircMsgFadeTime);
+	end
 	
 	table.insert(chatLines, 1, LINE);
 	
@@ -324,7 +377,9 @@ end
 function IRCShowAllMsgs()
 	for i = 1, #chatLines do
 		chatLines[i].GROUP:SetParam("alpha", 1.0);
-		chatLines[i].GROUP:ParamTo("alpha", 0, 5, ircMsgFadeTime);
+		if (ircMsgShouldFade) then
+			chatLines[i].GROUP:ParamTo("alpha", 0, 5, ircMsgFadeTime);
+		end
 	end
 end
 
