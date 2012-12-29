@@ -36,7 +36,7 @@
         <span class="blc"></span><span class="trc"></span>
         </div>
         <article class="markdown-body">
-          <p></p><h1>::FireFall IRC::</h1>
+          <h1>::FireFall IRC::</h1>
 
 <p>An ingame IRC client for FireFall.</p>
 
@@ -62,7 +62,7 @@
 <p>The relay server is written for Node.js so it has a few dependency that you will need to install. Thank fully it shouldn't hurt too badly :P</p>
 
 <ul>
-<li>  Node.js.</li>
+<li> Node.js.</li>
 <li>  Socket.io.</li>
 <li>  node-irc </li>
 </ul><h3>Installation:</h3>
@@ -78,10 +78,12 @@
 
 <p>Like so:</p>
 
-<div class="highlight"><pre>node app.js 8181
+<div class="highlight"><pre>node app.js <span class="o">[</span>port<span class="o">]</span> <span class="o">[</span>IRC server URL<span class="o">](</span>optional<span class="o">)</span>
 </pre></div>
 
-<p>8181 is the port, change to your liken.</p>
+<p>change [port] to your liken.</p>
+
+<p>[IRC server URL] is optional, but if set it will only allow connections to that IRC's URL, if omited than the relay can connect to any network. </p>
 
 <p>Annnd done :)</p>
 
