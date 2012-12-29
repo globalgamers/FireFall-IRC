@@ -7,15 +7,23 @@ var app = require('http').createServer(handler)
  var irc = require('irc');
  
  // Current version
- var version = 1.0;
+ var version = 1.2;
  var port = 80;
  if (process.argv[2])
 	port = process.argv[2];
- 
+
+var serverLock = "Nupe";
+if (process.argv[3])
+	serverLock = process.argv[3];
+	
 console.warn("!============================================================!");
 console.log("--              FireFall IRC Relay Server             Arkii --");
 console.warn("!============================================================!");
 console.log("Server Started Listening on port: " + port + " Nao :D");
+
+if (serverLock != "Nupe")
+	console.log("Server Locked to IRC Server: " + serverLock);
+	
 CheckVersion();
 
 app.listen(port);
@@ -67,8 +75,21 @@ io.sockets.on('connection', function (socket)
 		if (ircClient != false)
 			ircClient.disconnect("cya ^^");
 			
-		ircClient = IRC_Connect(socket, data.host, data.chan, data.nick);
-			
+		// Check if this relay is locked to a single server
+		if (serverLock == "Nupe")
+		{
+			ircClient = IRC_Connect(socket, data.host, data.chan, data.nick, data.pass);
+		}
+		else if (serverLock == data.host)
+		{
+			ircClient = IRC_Connect(socket, serverLock, data.chan, data.nick, data.pass);
+		}
+		else
+		{
+			socket.emit('onServerMsg', {"msg": ("This relay host is locked to the server: " + serverLock + " please use a differnt relay or connect to a channel on this server.")});
+			socket.emit('onServerMsg', {"msg": "Disconnected :<"});
+		}
+		
 		channel = data.chan;
 	  });
 	  
@@ -124,15 +145,25 @@ io.sockets.on('connection', function (socket)
 		if (ircClient)
 			ircClient.part(channel);
 	  });
+	  
+	 // oh shit oh shit nuuuuuuuuuuu!
+	process.on('uncaughtException', function (exception) 
+	{
+		//console.log(exception);
+	});
   
 });
 
 //==================================================
 // IRC Client
 //==================================================
-function IRC_Connect(socket, host, chan, user)
+function IRC_Connect(socket, host, chan, user, pass)
 {
-	var client = new irc.Client(host, user, {channels: [chan], userName: 'FireFallIRC', realName: 'FireFall ingame IRC',autoRejoin: true, floodProtection: true, floodProtectionDelay: 1000,});
+	var opts = {channels: [chan], userName: 'FireFallIRC', password: [pass], realName: 'FireFall ingame IRC',autoRejoin: true, floodProtection: true, floodProtectionDelay: 1000,};
+	if (!pass)
+		opts.password = null;
+		
+	var client = new irc.Client(host, user, opts);
 	
 	// A new message in the channel
 	client.addListener('message', 
@@ -159,7 +190,8 @@ function IRC_Connect(socket, host, chan, user)
 		socket.emit('onNick', {"oldnick": oldnick, "newnick": newnick, "channel": channels});
 	});
 	
-	/*client.addListener('raw', 
+	/*
+	client.addListener('raw', 
 	function (message) 
 	{
 		console.log("Raw Message");
@@ -169,11 +201,10 @@ function IRC_Connect(socket, host, chan, user)
 	client.addListener('ctcp-privmsg', 
 	function (from, to, text) 
 	{
-		console.log(text.substr(0, 6)+"|");
+		//console.log(text.substr(0, 6)+"|");
 		if (text.indexOf("ACTION") > -1)
 		{
 			socket.emit('onMEAction', {"nick": from, "text": text.substr(7, text.length)});
-			console.log(text.substr(7, text.length));
 		}
 	});
 	
@@ -230,11 +261,11 @@ function CheckVersion()
 		// if the version is out of date tell who ever is running it so
 		if (parseFloat(d) > version)
 		{
-			console.warn("!============================================================!");
+			console.warn("!==========================================================================!");
 			console.warn("Version out of date!");
 			console.warn("check: https://github.com/ArkyChan/FireFall-IRC");
-			console.warn("for updates, this version will still run but may lack features");
-			console.warn("!============================================================!");
+			console.warn("for updates, this version will still run (or should) but may lack features");
+			console.warn("!==========================================================================!");
 		}
 	  });
 	});

@@ -15,6 +15,7 @@ require "./lib/ui";
 local ADDONNAME = "IRC";
 local WEBFRAME = Component.GetFrame("web");
 local FRAME = Component.GetFrame("Main");
+local MESSAGEDIV = Component.GetWidget("msgs");
 
 local LINEHEIGHT = 18;
 local WINDOWWIDTH = 390;
@@ -30,6 +31,7 @@ local chatLines = {};
 local ircServer = "irc.freenode.net";
 local ircChan = "#yayifications";
 local ircNick = "";
+local ircPass = "";
 local ircAutoJoin = true;
 
 local primaryRelay = "ffirc.eu01.aws.af.cm";
@@ -46,6 +48,11 @@ local ircMsgShouldFade = true;
 local ircMsgFadeTime = 15;
 
 local ircChatToggle = false; -- If true then /irc will be prepended to the chat automatically
+
+--=====================
+--     Slash Cmds    --
+--=====================
+local SLASH_CMDS = {};
 
 --=====================
 --		   UI        --
@@ -68,6 +75,9 @@ UIHELPER.AddUICallback("IRCCHANNEL", function(args) ircChan = args; end);
 
 InterfaceOptions.AddTextInput({id="IRCNICK", label="Default IRC Nick:", default=ircNick, maxlen=128});
 UIHELPER.AddUICallback("IRCNICK", function(args) IRCSetNick(args); WEBFRAME:CallWebFunc('IRC_Say', "/nick "..args); end);
+
+InterfaceOptions.AddTextInput({id="IRCPASS", label="Server Password: ", default=ircNick, maxlen=128, masked=true, tooltip="Leave blank if unsure. eg. used for Twitch/Justin.tv chat"});
+UIHELPER.AddUICallback("IRCPASS", function(args) ircPass = args; end);
 
 InterfaceOptions.AddCheckBox({id="IRCAUTOJOIN", label="Auto Join Channel:", tooltip="If checked you will automaticly connect to the given irce server and channel. Can spam Connect/disconnects if you relaod the ui :/", default=ircAutoJoin});
 UIHELPER.AddUICallback("IRCAUTOJOIN", function(args) ircAutoJoin = args; end);
@@ -147,12 +157,21 @@ function OnComponentLoad()
 	WEBFRAME:AddWebCallback("onMessagePlain", onIRCMessagePlain);
 	WEBFRAME:AddWebCallback("onNames", onIRCNamesList);
 	WEBFRAME:AddWebCallback("onNick", onIRCNNick);
+	WEBFRAME:AddWebCallback("onServerMsg", IRCServerMsg);
 	
 	-- Chat commands
-	LIB_SLASH.BindCallback({slash_list="irctoggle, irc_toggle", description="Prepend '/irc' to message automatically", func=slashy.IRC_Toggle});
-	LIB_SLASH.BindCallback({slash_list="irc", description="Say something in the current irc channel", func=slashy.IRC_Say});
-	LIB_SLASH.BindCallback({slash_list="ircconnect, irc_connect", description="Connect to a irc server and channel. Usage: /ircconnect server channel", func=slashy.IRC_Connect});
-	LIB_SLASH.BindCallback({slash_list="ircdisconnect, irc_disconnect, ircleave", description="Disconnect from the current server and channel", func=slashy.IRC_Disconnect});
+	SLASH_CMDS = 
+	{
+		{slash_list="irctoggle, irc_toggle", description="Prepend '/irc' to messages automatically (Saves typeing :) )", func=slashy.IRC_Toggle},
+		{slash_list="irc", description="Say something in the current irc channel", func=slashy.IRC_Say},
+		{slash_list="ircconnect, irc_connect", description="Connect to a irc server and channel. Usage: /ircconnect server channel", func=slashy.IRC_Connect},
+		{slash_list="ircdisconnect, irc_disconnect, ircleave", description="Disconnect from the current server and channel", func=slashy.IRC_Disconnect},
+		{slash_list="irchelp", description="Shows all the commands and what they do, its what your looking at now ;)", func=slashy.IRC_Help}
+	};
+
+	for i = 1, #SLASH_CMDS do
+		LIB_SLASH.BindCallback(SLASH_CMDS[i]);
+	end
 	
 	FRAME:Show(true);
 	FRAME:SetParam("alpha", 1.0);
@@ -171,7 +190,7 @@ end
 
 function WebUI_OnNavigationFinished()
 	if (ircAutoJoin) then
-		IRCConnect(ircServer, ircChan, ircNick);
+		IRCConnect(ircServer, ircChan, ircNick, ircPass);
 	end
 end
 
@@ -199,7 +218,13 @@ end
 
 slashy.IRC_Connect  = function(args)
 	if (args.text) then
-		IRCConnect(args[1], args[2], ircNick);
+		local pass = "";
+		
+		if (args[3]) then
+			pass = args[3];
+		end
+			
+		IRCConnect(args[1], args[2], ircNick, pass);
 	end
 end
 
@@ -210,6 +235,16 @@ end
 
 slashy.IRC_Toggle = function()
 	ircChatToggle = not ircChatToggle;
+end
+
+slashy.IRC_Help = function()
+	local msg = "-========== IRC Help =========-\n";
+	for i = 1, #SLASH_CMDS do
+		msg = msg .. SLASH_CMDS[i].slash_list .. " : " .. SLASH_CMDS[i].description .. "\n";
+	end
+	msg = msg .. "-========== IRC Help =========-";
+
+	Component.GenerateEvent("MY_SYSTEM_MESSAGE", {text=msg});
 end
 
 --=====================
@@ -330,19 +365,19 @@ function IRCSetNick(newNick)
 end
 
 -- Connect to an IRC Server
-function IRCConnect(ircServer, ircChan, ircNicky)
+function IRCConnect(ircServer, ircChan, ircNicky, password)
 	if (ircServer == nil or ircChan == nil or ircNicky == nil) then
 		IRCClientMsg("Error :/ Please check make sure you enter a server channel and nick");
 	else
 		IRCClientMsg("Connecting to ".. ircChan.." on ".. ircServer);
 		
-		WEBFRAME:CallWebFunc('IRC_Connect', ircServer, ircChan, ircNicky);
+		WEBFRAME:CallWebFunc('IRC_Connect', ircServer, ircChan, ircNicky, password);
 	end
 end
 
 function IRCAddMsg(tag, msg, color)
 	local LINE = {}
-	LINE.GROUP = Component.CreateWidget("IRCline", FRAME);
+	LINE.GROUP = Component.CreateWidget("IRCline", MESSAGEDIV):GetChild("grp");
 	LINE.PLATE = LINE.GROUP:GetChild("plate");
 	LINE.TEXT = LINE.GROUP:GetChild("text");
 	LINE.PLATE:SetParam("tint", ircMsgBgColor);
@@ -351,7 +386,7 @@ function IRCAddMsg(tag, msg, color)
 	--LINE.GROUP:SetParam("alpha", 1.0);
 	local txt = tag .. " " .. msg;
 	LINE.TEXT:SetText(txt);
-	LINE.NUMLINES = GetNumLines(txt, 7, WINDOWWIDTH); -- Need to take word wraping into account, I'm sure Red5 have something for this but i can't find it :/
+	LINE.NUMLINES = LINE.TEXT:GetNumLines();
 	LINE.LINEHEIGTH = (LINE.NUMLINES * LINEHEIGHT);
 	LINE.GROUP:SetDims("left:0; width:100%; top:".. (WINDOWHEIGTH - LINE.LINEHEIGTH) .."; height:"..LINE.LINEHEIGTH);
 	LINE.TEXT:SetTextColor(color);
@@ -359,7 +394,7 @@ function IRCAddMsg(tag, msg, color)
 	if (ircMsgShouldFade) then
 		LINE.GROUP:ParamTo("alpha", 0, 5, ircMsgFadeTime);
 	end
-	
+
 	table.insert(chatLines, 1, LINE);
 	
 	-- Move all the other lines up
@@ -390,11 +425,4 @@ function IRC_MoveMsgs()
 		totalLineHeight = totalLineHeight + chatLines[i].LINEHEIGTH;
 		chatLines[i].GROUP:MoveTo("left:0; width:100%; top:".. (WINDOWHEIGTH - totalLineHeight) .."; height:".. chatLines[i].LINEHEIGTH .."", 0.01, 0, "linear");
 	end
-end
-
--- Returns the number of lines needed to fit the given text
-function GetNumLines(txt, charWidth, areaWidth)
-	local totalWidth = string.len(txt) * charWidth;
-	local numLines = totalWidth / areaWidth;
-	return math.floor(numLines) + 1;
 end

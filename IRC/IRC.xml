@@ -33,8 +33,10 @@ xsi:schemaLocation="http://www.red5studios.com/ ../../../schemas/component.xsd">
 	
 	<BluePrints>
 		<BluePrint name="IRCline" instantiable="true">
-			<StillArt name="plate" dimensions="left:0; right:100%; center-y:50%; height:100%" style="texture:colors; region:white; tint:#000000; alpha:0.5"/>
-			<Text name="text" dimensions="left:0; right:100%; center-y:50%; height:100%" class="IRCChat" style="halign:left; valign:bottom;"/>
+			<Group name="grp" dimensions="left:0; top:100%-18; height:18; width:100%;">
+				<StillArt name="plate" dimensions="dock:fill" style="texture:colors; region:white; tint:#000000; alpha:0.5"/>
+				<Text name="text" dimensions="dock:fill" class="IRCChat" style="halign:left; valign:bottom; wrap:true; padding:4;"/>
+			</Group>
 		</BluePrint>
 	</BluePrints>
 	
@@ -46,8 +48,11 @@ xsi:schemaLocation="http://www.red5studios.com/ ../../../schemas/component.xsd">
 			<OnNavigationFinished bind="WebUI_OnNavigationFinished"/>
 		</WebFrame>
 		
-		<PanelFrame name="Main" dimensions="right:100%; width:390; height:244; bottom:66%;" permanent="true" noclick="true" style="texture:colors; region:black; alpha:0.5">
+		<PanelFrame name="Main" dimensions="right:100%; width:390; height:244; bottom:66%;" permanent="true" noclick="true" style="texture:colors; region:black; alpha:0.5; clip-children:true;">
 			<Children>
+			<Group id="msgs" dimensions="dock:fill" style="clip-children:true;">
+			
+			</Group>
 				<!-- <StillArt id="BackPlate" dimensions="dock:fill" style="texture:colors; region:white; tint:#000000; alpha:0.25;"/> -->
 			</Children>
 			<OnMessage bind="OnMessage"/>

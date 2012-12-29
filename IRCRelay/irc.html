@@ -63,15 +63,23 @@
 				Red5.onNick(data.channel, data.oldnick, data.newnick);
 			}
 			});
+			
+			socket.on('onServerMsg', function (data) 
+			{
+			if (Red5)
+			{
+				Red5.onServerMsg(data.msg);
+			}
+			});
 		  
 				//============================
 				// LUA Callbacks
 				//============================
 				Red5Callbacks = 
 				{
-					IRC_Connect: function(host, chan, nick)
+					IRC_Connect: function(host, chan, nick, pass)
 					{
-						socket.emit('ircConnect', {"host": host, "chan": chan, "nick": nick});
+						socket.emit('ircConnect', {"host": host, "chan": chan, "nick": nick, "pass": pass});
 					},
 					
 					IRC_Disconnect: function(data)
