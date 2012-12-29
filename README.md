@@ -33,9 +33,11 @@ That script should install the dependencies and grab the latest version of the s
 
 Like so:
  ```bash
-node app.js 8181
+node app.js [port] [IRC server URL](optional)
   ```
 
-8181 is the port, change to your liken.
+change [port] to your liken.
+
+[IRC server URL] is optional, but if set it will only allow connections to that IRC's URL, if omited than the relay can connect to any network. 
 
 Annnd done :)
