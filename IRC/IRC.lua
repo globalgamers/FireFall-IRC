@@ -28,11 +28,12 @@ local slashy = {};
 local maXChatLines = 1;
 local chatLines = {};
 
-local ircServer = "irc.freenode.net";
-local ircChan = "#yayifications";
+local ircServer = "irc.globalgamers.net";
+local ircChan = "#Firefall";
 local ircNick = "";
 local ircPass = "";
 local ircAutoJoin = true;
+local ircHideJoin = false;
 
 local primaryRelay = "ffirc.eu01.aws.af.cm";
 local secondaryRelay = "ffirc.eu01.aws.af.cm";
@@ -79,8 +80,11 @@ UIHELPER.AddUICallback("IRCNICK", function(args) IRCSetNick(args); WEBFRAME:Call
 InterfaceOptions.AddTextInput({id="IRCPASS", label="Server Password: ", default=ircNick, maxlen=128, masked=true, tooltip="Leave blank if unsure. eg. used for Twitch/Justin.tv chat"});
 UIHELPER.AddUICallback("IRCPASS", function(args) ircPass = args; end);
 
-InterfaceOptions.AddCheckBox({id="IRCAUTOJOIN", label="Auto Join Channel:", tooltip="If checked you will automaticly connect to the given irce server and channel. Can spam Connect/disconnects if you relaod the ui :/", default=ircAutoJoin});
+InterfaceOptions.AddCheckBox({id="IRCAUTOJOIN", label="Auto Join Channel:", tooltip="If checked you will automaticly connect to the given irc server and channel. Can spam Connect/disconnects if you relaod the ui :/", default=ircAutoJoin});
 UIHELPER.AddUICallback("IRCAUTOJOIN", function(args) ircAutoJoin = args; end);
+
+InterfaceOptions.AddCheckBox({id="IRCHIDEJOIN", label="Hide join/quit messages:", tooltip="If checked 'user has joined' and 'user has quit' messags will not be shown.", default=ircHideJoin});
+UIHELPER.AddUICallback("IRCHIDEJOIN", function(args) ircHideJoin = args; end);
 
 InterfaceOptions.StopGroup();
 
@@ -306,11 +310,19 @@ function onTopic(nick, topic)
 end
 
 function onJoin(nick)
+	if (ircHideJoin) then
+		return;
+	end
+	
 	IRCServerMsg(nick .. " Has joined the channel :D");
 	IRCShowAllMsgs();
 end
 
 function onPart(nick)
+	if (ircHideJoin) then
+		return;
+	end
+	
 	IRCServerMsg(nick .. " Has left the channel ;(");
 	IRCShowAllMsgs();
 end

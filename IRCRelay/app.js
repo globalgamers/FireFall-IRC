@@ -6,15 +6,26 @@ var app = require('http').createServer(handler)
   
  var irc = require('irc');
  
+ // Are we on appfog?
+ var onAppFog = false;
+ if (process.env.appfrog == "true")
+	onAppFog = true;
+	
+ console.log(onAppFog);
+ 
  // Current version
  var version = 1.2;
  var port = 80;
- if (process.argv[2])
-	port = process.argv[2];
 
 var serverLock = "Nupe";
-if (process.argv[3])
-	serverLock = process.argv[3];
+if (!onAppFog)
+{
+	if (process.argv[3])
+		serverLock = process.argv[3];
+		
+	if (process.argv[2])
+		port = process.argv[2];
+}
 	
 console.warn("!============================================================!");
 console.log("--              FireFall IRC Relay Server             Arkii --");
@@ -37,7 +48,7 @@ function handler (req, res)
 	if (pathname == "/stats") // Display the stats
 	{
 		res.writeHead(200);
-		res.end("Active Connections: " + activeConnections);
+		res.end("Active Connections: " + activeConnections + "\n" + onAppFog + " " + process.env.appfrog);
 	}
 	else
 	{
