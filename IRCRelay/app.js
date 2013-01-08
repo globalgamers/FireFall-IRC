@@ -14,7 +14,7 @@ var app = require('http').createServer(handler)
  console.log(onAppFog);
  
  // Current version
- var version = 1.2;
+ var version = 1.3;
  var port = 80;
 
 var serverLock = "Nupe";
@@ -77,14 +77,14 @@ io.sockets.on('connection', function (socket)
 	  activeConnections++;
 	  console.log("Connected Clients: " + activeConnections);
 	  
-	  var ircClient = false;
+	  var ircClient = null;
 	  var channel;
 	  
 	  // Connect to a channel in a server with the given nick
 	  socket.on('ircConnect', function (data) 
 	  {
-		if (ircClient != false)
-			ircClient.disconnect("cya ^^");
+		if (ircClient != null)
+			IRCDisconnect(ircClient);
 			
 		// Check if this relay is locked to a single server
 		if (serverLock == "Nupe")
@@ -140,20 +140,20 @@ io.sockets.on('connection', function (socket)
 		activeConnections--;
 		console.log("Connected Clients: " + activeConnections);
 	  
-		if (ircClient)
-			ircClient.disconnect("cya ^^");
+		//if (ircClient != false)
+			IRCDisconnect(ircClient);
 	  });
 	  
 	  socket.on('ircDisconnect', function (data) 
 	  {
-		if (ircClient)
-			ircClient.disconnect("cya ^^");
+		if (ircClient != null)
+			IRCDisconnect(ircClient);
 	  });
 	  
 	  // Leave the channel
 	  socket.on('part', function (data) 
 	  {
-		if (ircClient)
+		if (ircClient != null)
 			ircClient.part(channel);
 	  });
 	  
@@ -170,7 +170,7 @@ io.sockets.on('connection', function (socket)
 //==================================================
 function IRC_Connect(socket, host, chan, user, pass)
 {
-	var opts = {channels: [chan], userName: 'FireFallIRC', password: [pass], realName: 'FireFall ingame IRC',autoRejoin: true, floodProtection: true, floodProtectionDelay: 1000,};
+	var opts = {channels: [chan], userName: 'FireFallIRC', password: [pass], realName: 'FireFall ingame IRC',autoRejoin: false, floodProtection: true, floodProtectionDelay: 1000,};
 	if (!pass)
 		opts.password = null;
 		
@@ -248,6 +248,16 @@ function IRC_Connect(socket, host, chan, user, pass)
 	});
 	
 	return client;
+}
+
+function IRCDisconnect(ircClient)
+{
+	ircClient.send( "QUIT", "cya ^^");
+	ircClient.disconnect("cya ^^");
+	ircClient.conn.requestedDisconnect = true;
+	ircClient.conn.end(); // The irc lib doesn't seem to alway quit so I forced its hand :p
+	ircClient.conn.destroy();
+	ircClient = null;
 }
 
 //==================================================

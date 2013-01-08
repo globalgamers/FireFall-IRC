@@ -32,6 +32,7 @@ local ircServer = "irc.globalgamers.net";
 local ircChan = "#Firefall";
 local ircNick = "";
 local ircPass = "";
+local ircRememberJoin = false;
 local ircAutoJoin = true;
 local ircHideJoin = false;
 
@@ -77,8 +78,21 @@ UIHELPER.AddUICallback("IRCCHANNEL", function(args) ircChan = args; end);
 InterfaceOptions.AddTextInput({id="IRCNICK", label="Default IRC Nick:", default=ircNick, maxlen=128});
 UIHELPER.AddUICallback("IRCNICK", function(args) IRCSetNick(args); WEBFRAME:CallWebFunc('IRC_Say', "/nick "..args); end);
 
+local ircPassFirstLoad = true;
 InterfaceOptions.AddTextInput({id="IRCPASS", label="Server Password: ", default=ircNick, maxlen=128, masked=true, tooltip="Leave blank if unsure. eg. used for Twitch/Justin.tv chat"});
-UIHELPER.AddUICallback("IRCPASS", function(args) ircPass = args; end);
+UIHELPER.AddUICallback("IRCPASS", function(args) 
+	ircPass = args; 
+	if (not ircPassFirstLoad) then IRC_Reconnect(); end
+	ircPassFirstLoad = false;
+end);
+
+InterfaceOptions.AddCheckBox({id="IRCREMEMBERPASS", label="Remember Password:", tooltip="If checked your password will be stored in plain text but you won't have to enter it each time", default=ircRememberJoin});
+UIHELPER.AddUICallback("IRCREMEMBERPASS", function(args)
+	ircRememberJoin = args;
+	if (not ircRememberJoin) then
+		Component.SaveSetting("option-textinput:IRCPASS", ""); 
+	end
+end);
 
 InterfaceOptions.AddCheckBox({id="IRCAUTOJOIN", label="Auto Join Channel:", tooltip="If checked you will automaticly connect to the given irc server and channel. Can spam Connect/disconnects if you relaod the ui :/", default=ircAutoJoin});
 UIHELPER.AddUICallback("IRCAUTOJOIN", function(args) ircAutoJoin = args; end);
@@ -109,7 +123,7 @@ UIHELPER.AddUICallback("IRCCLIENTMSGCOLOR", function(args) ircClientmsgColor = a
 InterfaceOptions.AddColorPicker({id="IRCMSGBGCOLOR", label="Message background color:", default={alpha=1, tint=ircMsgBgColor}});
 UIHELPER.AddUICallback("IRCMSGBGCOLOR", function(args) ircMsgBgColor = args.tint; end);
 
-InterfaceOptions.AddSlider({id="IRCMSGBGALPHA", label="Message background alpha:", default=ircMsgBgAlpha, min=0.1, max=1.0, inc=0.1, multi=100});
+InterfaceOptions.AddSlider({id="IRCMSGBGALPHA", label="Message background alpha:", default=ircMsgBgAlpha, min=0.1, max=1.0, inc=0.05, multi=100});
 UIHELPER.AddUICallback("IRCMSGBGALPHA", function(args) ircMsgBgAlpha = args; end);
 
 InterfaceOptions.AddCheckBox({id="IRCSHOULDFADE", label="Fade IRC Messages:"});
@@ -138,7 +152,15 @@ UIHELPER.AddUICallback("IRCRELAY2", function(args) secondaryRelay = args; end);
 InterfaceOptions.StopGroup();
 
 -- Called when the ui options are loaded
-UIHELPER.AddUICallback("__LOADED", function(args) if (ircNick == "") then IRCSetNick(Player.GetInfo()); end end);
+UIHELPER.AddUICallback("__LOADED", function(args)
+	if (ircNick == "") then
+		IRCSetNick(Player.GetInfo());
+	end 
+	
+	if (not ircRememberJoin) then
+		Component.SaveSetting("option-textinput:IRCPASS", ""); 
+	end 
+end);
 
 --=====================
 --		Events       --
@@ -348,6 +370,12 @@ function onIRCNNick(channel, old, new)
 	IRCShowAllMsgs();
 end
 
+function IRC_Reconnect()
+	slashy.IRC_Disconnect();WEBFRAME:CallWebFunc('IRC_Disconnect', nil);
+	IRCConnect(ircServer, ircChan, ircNick, ircPass);
+	IRCClientMsg("Reconnecting....");
+end
+
 --=====================
 --	   IRC Window    --
 --=====================
@@ -393,7 +421,7 @@ function IRCAddMsg(tag, msg, color)
 	LINE.PLATE = LINE.GROUP:GetChild("plate");
 	LINE.TEXT = LINE.GROUP:GetChild("text");
 	LINE.PLATE:SetParam("tint", ircMsgBgColor);
-	LINE.GROUP:SetParam("alpha", ircMsgBgAlpha);
+	LINE.PLATE:SetParam("alpha", ircMsgBgAlpha);
 	LINE.GROUP:Show(true);
 	--LINE.GROUP:SetParam("alpha", 1.0);
 	local txt = tag .. " " .. msg;
@@ -423,6 +451,7 @@ end
 -- Show all the messages again
 function IRCShowAllMsgs()
 	for i = 1, #chatLines do
+		chatLines[i].PLATE:SetParam("alpha", ircMsgBgAlpha);
 		chatLines[i].GROUP:SetParam("alpha", 1.0);
 		if (ircMsgShouldFade) then
 			chatLines[i].GROUP:ParamTo("alpha", 0, 5, ircMsgFadeTime);
