@@ -201,8 +201,8 @@ function IRC_Connect(socket, host, chan, user, pass)
 		socket.emit('onNick', {"oldnick": oldnick, "newnick": newnick, "channel": channels});
 	});
 	
-	/*
-	client.addListener('raw', 
+	
+	/*client.addListener('raw', 
 	function (message) 
 	{
 		console.log("Raw Message");
@@ -216,6 +216,7 @@ function IRC_Connect(socket, host, chan, user, pass)
 		if (text.indexOf("ACTION") > -1)
 		{
 			socket.emit('onMEAction', {"nick": from, "text": text.substr(7, text.length)});
+			
 		}
 	});
 	
